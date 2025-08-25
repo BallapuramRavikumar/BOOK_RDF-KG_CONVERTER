@@ -1,0 +1,92 @@
+# 1. Imports and Initial Setup ⚙️
+
+This initial block imports all the necessary libraries for the application to run.
+
+streamlit: The core library for creating the web application's user interface (UI).
+
+rdflib: A powerful library for working with RDF data. It's used to create, manage, and serialize the knowledge graph.
+
+docx: Used for reading and extracting text and tables from Microsoft Word (.docx) files.
+
+PyPDF2 and pdfplumber: These libraries work together to extract text, images, and tables from PDF files. pdfplumber is particularly good at understanding the layout of a PDF page.
+
+pytesseract and PIL (Pillow): These are used for Optical Character Recognition (OCR). PIL handles image manipulation (like opening, enhancing, and filtering), and pytesseract performs the actual text extraction from those images.
+
+cv2 (OpenCV) and numpy: Optional but highly recommended libraries for advanced image processing. They can significantly improve OCR accuracy by converting images to grayscale and applying thresholding techniques.
+
+Standard Libraries: os, re (regular expressions), tempfile, datetime, hashlib, urllib.parse, and traceback are used for file operations, pattern matching, creating temporary files, and handling errors.
+
+The script also defines global constants like EX (a namespace for the RDF ontology), CAPTION_PATTERNS, and ratios for skipping headers/footers in PDFs.
+
+
+
+## 2. Text and Image Processing Functions 🖼️
+
+This group of functions is responsible for cleaning and preparing the raw data extracted from the documents.
+
+clean_text(text): A utility function that normalizes and sanitizes text by removing extra whitespace, special characters, and other "noise" to make it suitable for processing and storing in the RDF graph.
+
+preprocess_image_for_ocr(pil_image): This function takes an image and prepares it for OCR. If OpenCV is available, it performs advanced processing like converting the image to grayscale and applying a binary threshold. Otherwise, it uses basic PIL functions to enhance contrast and sharpness.
+
+extract_caption_from_text(...): Searches for text near an image's location in a PDF that matches common caption patterns (e.g., "Figure 1: ...").
+
+extract_pdf_images_with_ocr(...): This is a key function that iterates through a PDF, finds all images, saves them, runs them through the pre-processing and OCR functions, and attempts to find associated captions. It's designed to filter out small or blank images that are likely decorative.
+
+extract_formulas_from_image(...): A specialized function that simulates Mathematical OCR (M-OCR). It looks for specific patterns in the OCR text of an image to identify a known mathematical formula and returns its LaTeX representation.
+
+
+
+## 3. Document Structure and Content Extraction 📄
+
+These are the most complex functions in the script. They are responsible for parsing the uploaded document and understanding its hierarchical structure (title, sections, subsections, etc.).
+
+extract_text_from_columns(page) and column_to_lines(words): These helper functions are specifically designed to handle the two-column layout common in IEEE papers. They split the page in half, process the text in each column separately, and then recombine it in the correct reading order.
+
+extract_pdf_structure(pdf_path, document_category): This function orchestrates the PDF parsing. It uses pdfplumber to extract text line by line and then applies a set of regular expressions and state-based logic to identify the document's title, abstract, and sections. It has specialized logic that activates when the document_category is "IEEE Knowledge" or "Patent Knowledge" to handle their unique formatting.
+
+extract_doc_structure(docx_path, document_category): This function performs the same role as its PDF counterpart but for .docx files. It reads paragraphs and uses their styles (e.g., "Heading 1", "Heading 2") and text patterns to determine the document's structure.
+
+extract_pdf_tables(pdf_path) and extract_doc_tables(docx_path): These functions are dedicated to finding and extracting tables from PDF and Word documents, respectively.
+
+
+
+## 4. RDF Conversion 🔗
+
+Once the document's structure and content have been extracted, this set of functions converts that information into a structured RDF knowledge graph.
+
+safe_uri_name(text) and safe_literal(text): These are crucial helper functions that sanitize text to make it compliant with RDF standards. safe_uri_name creates valid identifiers (URIs) for entities like sections and images, while safe_literal cleans text content before it's stored as data.
+
+convert_to_rdf(...): This is the main conversion function. It initializes an rdflib.Graph, defines the ontology (the classes and properties like ex:hasSection, ex:hasImage), and then iterates through the document_structure dictionary. For each piece of information (title, section, image, table), it creates the corresponding RDF triples, effectively building the knowledge graph.
+
+create_clean_ttl(rdf_graph): This function serializes the in-memory RDF graph into the Turtle (.ttl) format, which is a standard, human-readable way to write RDF data. It also cleans the output to prevent common parsing errors in ontology editors like Protégé.
+
+
+
+## 5. User Interface (UI) and Main Execution Block 🖥️
+
+This is the final part of the script that the user interacts with.
+
+display_structure(...): Takes the extracted document_structure and all_images_data and presents them in a user-friendly, expandable format in the Streamlit app.
+
+Main Block (if uploaded_file and convert_button:): This is the entry point that runs when the user uploads a file and clicks the "Convert" button. It orchestrates the entire workflow:
+
+Creates a temporary file to store the uploaded document.
+
+Calls the appropriate extraction functions (extract_pdf_structure or extract_doc_structure) based on the file extension.
+
+Calls the display_structure function to show the results to the user.
+
+Calls the convert_to_rdf function to generate the knowledge graph.
+
+Provides a download button for the final .ttl file.
+
+Cleans up by deleting the temporary file.
+To view images in Protégé, you need to run a local web server (e.g., Python's http.server) in the parent directory containing the 'Image' folder. For example, navigate to C:\Users\PycharmProjects\PythonProject4 in your terminal and run python -m http.server 8000. Then, Protégé will be able to resolve the image URLs.
+
+
+python-m venv venv
+venv\Scripts\Activate
+pip install requirements.txt
+python -m http.server 8000
+streamlit run frontend.py
+
